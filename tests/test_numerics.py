@@ -3,8 +3,9 @@
 import numpy as np
 import pytest
 
-from airfoil.numerics import db_sum
+from airfoil.numerics import central_difference, db_sum, forward_difference
 
+# dB energy sum
 # Test for combining two sounds of 100 dB each.
 def test_db_sum_two_equal_levels():
     """Two equal levels add 10*log10(2) = 3.0103 dB."""
@@ -32,3 +33,25 @@ def test_db_sum_empty_raises():
     """An empty input is rejected."""
     with pytest.raises(ValueError):
         db_sum([])
+
+# Finite differences
+def test_central_difference_matches_cos():
+    """d/dx sin(x) at x = 1 equals cos(1)."""
+    estimate = central_difference(np.sin, 1.0, h=1e-5)
+    assert estimate == pytest.approx(np.cos(1.0), abs=1e-8)
+
+
+def test_forward_difference_is_first_order():
+    """Shrinking h by 10 should shrink the error by about 10 (O(h))."""
+    exact = np.cos(1.0)
+    err_big = abs(forward_difference(np.sin, 1.0, 1e-2) - exact)
+    err_small = abs(forward_difference(np.sin, 1.0, 1e-3) - exact)
+    assert 5 < err_big / err_small < 20
+
+
+def test_central_difference_is_second_order():
+    """Shrinking h by 10 should shrink the error by about 100 (O(h**2))."""
+    exact = np.cos(1.0)
+    err_big = abs(central_difference(np.sin, 1.0, 1e-2) - exact)
+    err_small = abs(central_difference(np.sin, 1.0, 1e-3) - exact)
+    assert 50 < err_big / err_small < 200

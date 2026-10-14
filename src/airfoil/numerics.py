@@ -40,3 +40,42 @@ def db_sum(levels_db):
     # Factor out the maximum for numerical stability (avoids overflow).
     l_max = levels.max()
     return l_max + 10 * np.log10(np.sum(10 ** ((levels - l_max) / 10)))
+
+def forward_difference(f, x, h):
+    """Forward-difference estimate of f'(x). Truncation error is O(h).
+
+    Parameters
+    ----------
+    f : callable
+        Function of one variable.
+    x : float
+        Point at which to estimate the derivative.
+    h : float
+        Step size (must be positive).
+
+    Returns
+    -------
+    float
+        Estimate of f'(x).
+    """
+    return (f(x + h) - f(x)) / h
+
+
+def central_difference(f, x, h):
+    """Central-difference estimate of f'(x). Truncation error is O(h**2).
+
+    Parameters
+    ----------
+    f : callable
+        Function of one variable.
+    x : float
+        Point at which to estimate the derivative.
+    h : float
+        Step size (must be positive).
+
+    Returns
+    -------
+    float
+        Estimate of f'(x).
+    """
+    return (f(x + h) - f(x - h)) / (2 * h)
