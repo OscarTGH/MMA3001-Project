@@ -65,3 +65,37 @@ def test_cross_validate_model_on_exact_line():
                                    KFold(5, shuffle=True, random_state=0))
     assert len(results) == 5
     assert results["rmse"].max() == pytest.approx(0, abs=1e-10)
+
+
+from airfoil.validation import (
+    cross_val_predictions,
+    cross_validate_model,
+    make_cv_schemes,
+    nested_cv,
+    regression_metrics,
+    setup_groups,
+)
+
+def test_nested_cv_returns_one_row_per_outer_fold():
+    """Nested CV gives one result per outer fold, with params from the grid."""
+    from sklearn.linear_model import Ridge
+
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(120, 2))
+    y = 3 * X[:, 0] - 2 * X[:, 1] + rng.normal(scale=0.1, size=120)
+    groups = np.repeat(np.arange(30), 4)   # 30 groups of 4 rows
+
+    results = nested_cv(Ridge(), {"alpha": [0.01, 1.0]}, X, y, groups,
+                        n_outer=3, n_inner=3)
+    assert len(results) == 3
+    assert all(p["alpha"] in (0.01, 1.0) for p in results["best_params"])
+    assert results["rmse"].max() < 0.5
+
+def test_cross_val_predictions_fills_every_row():
+    """Every row gets a prediction, and an exact line is predicted exactly."""
+    X = np.linspace(0, 10, 50).reshape(-1, 1)
+    y = 3 * X.ravel() + 2
+    y_pred = cross_val_predictions(LinearRegression(), X, y,
+                                   KFold(5, shuffle=True, random_state=0))
+    assert not np.isnan(y_pred).any()
+    assert y_pred == pytest.approx(y, abs=1e-10)

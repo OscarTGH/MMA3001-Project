@@ -117,3 +117,88 @@ def cross_validate_model(model, X, y, cv, groups=None):
         rows.append({"fold": fold, "n_test": len(test_idx),
                      **regression_metrics(y[test_idx], y_pred)})
     return pd.DataFrame(rows)
+
+def nested_cv(model, param_grid, X, y, groups, n_outer=5, n_inner=3):
+    """Tune and score a model with nested grouped cross-validation.
+
+    The inner loop (GroupKFold, ``n_inner`` folds) chooses the
+    hyperparameters using only the outer training set-ups. The outer loop
+    (GroupKFold, ``n_outer`` folds) then scores the chosen model on set-ups
+    never used for tuning, giving an unbiased estimate of tuned accuracy.
+
+    Parameters
+    ----------
+    model : scikit-learn estimator
+        Untuned model (a Pipeline is fine).
+    param_grid : dict
+        Hyperparameter names (using pipeline step prefixes) mapped to lists
+        of values to try.
+    X : numpy.ndarray, shape (n_rows, n_features)
+        Input features.
+    y : numpy.ndarray, shape (n_rows,)
+        Target values (SPL in dB).
+    groups : numpy.ndarray, shape (n_rows,)
+        Set-up label per row (from ``setup_groups``).
+    n_outer, n_inner : int, optional
+        Number of outer and inner folds (defaults 5 and 3).
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per outer fold: ``fold``, ``n_test``, the four metrics on
+        the outer test set-ups, ``best_params`` chosen by the inner loop,
+        and ``inner_rmse`` (the inner loop's own, optimistic, best score).
+    """
+    from sklearn.model_selection import GridSearchCV
+
+    rows = []
+    outer = GroupKFold(n_outer)
+    for fold, (train_idx, test_idx) in enumerate(outer.split(X, y, groups)):
+        search = GridSearchCV(
+            clone(model), param_grid,
+            cv=GroupKFold(n_inner),
+            scoring="neg_root_mean_squared_error",
+            n_jobs=-1,
+        )
+        search.fit(X[train_idx], y[train_idx], groups=groups[train_idx])
+        y_pred = search.predict(X[test_idx])
+        rows.append({
+            "fold": fold,
+            "n_test": len(test_idx),
+            **regression_metrics(y[test_idx], y_pred),
+            "best_params": search.best_params_,
+            "inner_rmse": -search.best_score_,
+        })
+    return pd.DataFrame(rows)
+
+def cross_val_predictions(model, X, y, cv, groups=None):
+    """Out-of-fold predictions: each row is predicted by a model that never saw it.
+
+    Every row appears in exactly one test fold, so after all folds each row
+    has one prediction made without its own (or, with grouped CV, its
+    set-up's) data.
+
+    Parameters
+    ----------
+    model : scikit-learn estimator
+        Any object with ``fit`` and ``predict``.
+    X : numpy.ndarray, shape (n_rows, n_features)
+        Input features.
+    y : numpy.ndarray, shape (n_rows,)
+        Target values (SPL in dB).
+    cv : scikit-learn splitter
+        Must place every row in exactly one test fold (e.g. GroupKFold).
+    groups : numpy.ndarray or None, optional
+        Group label per row, required by grouped splitters.
+
+    Returns
+    -------
+    numpy.ndarray, shape (n_rows,)
+        Out-of-fold predictions in dB.
+    """
+    y_pred = np.full(len(y), np.nan)
+    for train_idx, test_idx in cv.split(X, y, groups):
+        fold_model = clone(model)
+        fold_model.fit(X[train_idx], y[train_idx])
+        y_pred[test_idx] = fold_model.predict(X[test_idx])
+    return y_pred
