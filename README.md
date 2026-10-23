@@ -119,7 +119,9 @@ so they may differ on another computer.
   pdoc from the docstrings).
 - **Tests:** run `pytest`. The numerical routines are verified against
   analytical solutions, including order-of-accuracy checks for finite
-  differences and quadrature. The latest test report is in `results/`.
+  differences and quadrature. The latest test report is
+  `results/test-report.html`; regenerate it with
+  `pytest --html=results/test-report.html --self-contained-html`.
 - **Regenerate the documentation:** `pdoc ./src/airfoil --docformat numpy -o docs`
 
 ## Limitations
