@@ -120,6 +120,7 @@ so they may differ on another computer.
 - **Tests:** run `pytest`. The numerical routines are verified against
   analytical solutions, including order-of-accuracy checks for finite
   differences and quadrature. The latest test report is in `results/`.
+- **Regenerate the documentation:** `pdoc ./src/airfoil --docformat numpy -o docs`
 
 ## Limitations
 
